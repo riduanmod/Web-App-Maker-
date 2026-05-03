@@ -2,7 +2,13 @@ import os
 import urllib.parse
 from flask import Flask, request, jsonify, send_from_directory, Response
 
-app = Flask(__name__, static_folder='public')
+# Vercel-এর জন্য Absolute Path সেট করা
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ফাইলগুলো public ফোল্ডারে থাকলে সেটি ব্যবহার করবে, নাহলে মেইন ফোল্ডার ব্যবহার করবে
+PUBLIC_DIR = os.path.join(BASE_DIR, 'public') if os.path.isdir(os.path.join(BASE_DIR, 'public')) else BASE_DIR
+
+app = Flask(__name__, static_folder=PUBLIC_DIR)
 
 @app.route('/manifest.json')
 def get_manifest():
@@ -12,6 +18,7 @@ def get_manifest():
     theme = request.args.get('theme', '#0b0f19')
 
     manifest = {
+        "Developer_Credit": "Developer: Riduanul Islam",
         "name": name,
         "short_name": name[:12],
         "start_url": f"/app?name={urllib.parse.quote(name)}&url={urllib.parse.quote(url)}&icon={urllib.parse.quote(icon)}&theme={urllib.parse.quote(theme)}",
@@ -124,12 +131,10 @@ def get_app():
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
             
             if (isStandalone) {{
-                // App is opened from Homescreen -> Show iframe
                 document.getElementById('install-screen').style.display = 'none';
                 document.body.classList.remove('justify-center', 'items-center');
                 document.getElementById('app-frame').style.display = 'block';
             }} else {{
-                // Browser Mode -> Handle Installation
                 let deferredPrompt;
                 const installBtn = document.getElementById('install-btn');
 
@@ -149,7 +154,6 @@ def get_app():
                     deferredPrompt = null;
                 }});
 
-                // When OS confirms install, transition instantly to the App
                 window.addEventListener('appinstalled', () => {{
                     document.getElementById('install-screen').style.display = 'none';
                     document.body.classList.remove('justify-center', 'items-center');
@@ -164,11 +168,13 @@ def get_app():
 
 @app.route('/')
 def serve_index():
-    return send_from_directory('public', 'index.html')
+    return send_from_directory(PUBLIC_DIR, 'index.html')
 
 @app.route('/<path:path>')
 def serve_static(path):
-    return send_from_directory('public', path)
+    if os.path.exists(os.path.join(PUBLIC_DIR, path)):
+        return send_from_directory(PUBLIC_DIR, path)
+    return "File not found", 404
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
