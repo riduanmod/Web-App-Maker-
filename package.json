@@ -1,0 +1,12 @@
+{
+  "name": "any-url-pwa-generator",
+  "version": "1.0.0",
+  "description": "Generate installable PWAs from any URL",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
