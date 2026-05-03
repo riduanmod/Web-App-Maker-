@@ -1,14 +1,29 @@
 import os
 import urllib.parse
-from flask import Flask, request, jsonify, send_from_directory, Response
+import mimetypes
+from flask import Flask, request, jsonify, Response
 
-# Vercel-এর জন্য Absolute Path সেট করা
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(__name__)
 
-# ফাইলগুলো public ফোল্ডারে থাকলে সেটি ব্যবহার করবে, নাহলে মেইন ফোল্ডার ব্যবহার করবে
-PUBLIC_DIR = os.path.join(BASE_DIR, 'public') if os.path.isdir(os.path.join(BASE_DIR, 'public')) else BASE_DIR
-
-app = Flask(__name__, static_folder=PUBLIC_DIR)
+# ফাইল খুঁজে বের করার জন্য একটি কাস্টম ফাংশন
+def get_file_response(filename):
+    # এটি প্রথমে 'public' ফোল্ডারে খুঁজবে, না পেলে সরাসরি মেইন ফোল্ডারে খুঁজবে
+    paths = [
+        os.path.join(BASE_DIR, 'public', filename),
+        os.path.join(BASE_DIR, filename)
+    ]
+    
+    for file_path in paths:
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            mime_type, _ = mimetypes.guess_type(file_path)
+            if not mime_type:
+                mime_type = 'text/plain'
+            
+            # ফাইলটিকে বাইনারি মোডে রিড করা হচ্ছে যাতে টেক্সট এবং ছবি দুটোই সাপোর্ট করে
+            with open(file_path, 'rb') as f:
+                return Response(f.read(), mimetype=mime_type)
+    return None
 
 @app.route('/manifest.json')
 def get_manifest():
@@ -17,6 +32,7 @@ def get_manifest():
     icon = request.args.get('icon', 'https://via.placeholder.com/512.png?text=PWA')
     theme = request.args.get('theme', '#0b0f19')
 
+    # Developer Credit সবসময় response এর উপরে রাখা হয়েছে
     manifest = {
         "Developer_Credit": "Developer: Riduanul Islam",
         "name": name,
@@ -168,13 +184,16 @@ def get_app():
 
 @app.route('/')
 def serve_index():
-    return send_from_directory(PUBLIC_DIR, 'index.html')
+    resp = get_file_response('index.html')
+    if resp: return resp
+    return "<h1>404 Not Found</h1><p>index.html was not found in your repository.</p>", 404
 
 @app.route('/<path:path>')
 def serve_static(path):
-    if os.path.exists(os.path.join(PUBLIC_DIR, path)):
-        return send_from_directory(PUBLIC_DIR, path)
+    resp = get_file_response(path)
+    if resp: return resp
     return "File not found", 404
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000)
+    
